@@ -10,7 +10,8 @@ TFT screen with audio output through the I2S DAC
     1. Initialize the TFT screen
     2. Initialize the SD card
     3. Load a sequence of images and audio files from the SD card
-    4. Display the images on the TFT screen in sync with the audio playback
+    4. Display the images on the TFT screen in sync with the audio playback  
+    
 */
 
 enum ScreenStates{SCREEN_IDLE};
