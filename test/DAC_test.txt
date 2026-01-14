@@ -1,0 +1,77 @@
+#include <Arduino.h>
+#include "../include/pins.h"
+
+#define MAX_BAT 4.2
+#define MIN_BAT 3.2
+
+unsigned char batteryLight = 0; //0 rgb led off, 1 red, 2 yellow, 3 yellow;
+
+// battery ADC Read Example
+//we have two resistors each of 100k ohm in series forming a voltage divider
+//so the voltage at the midpoint (connected to BAT_ADC) is Vbat/2
+
+void setup() {
+  //battery ADC pin
+  pinMode(BAT_ADC, INPUT);
+  analogSetPinAttenuation(BAT_ADC, ADC_11db);
+
+  //RGB LED pins
+  pinMode(RGB_PIN_R, OUTPUT);
+  pinMode(RGB_PIN_G, OUTPUT);
+//  pinMode(RGB_PIN_B, OUTPUT); //may not need it
+
+  Serial.begin(115200);
+}
+
+void loop() {
+  // read the battery voltage
+  unsigned int adcValue = analogRead(BAT_ADC);
+  // convert ADC value to voltage
+  float voltage = (adcValue / 4095.0) * 2 * 3.3; // factor 2 due to voltage divider
+  Serial.print("Battery Voltage: "); 
+  Serial.println(voltage);
+  Serial.println();
+
+  //now we take battery percentage 
+  //min 3.2V (0%) max 4.2V (100%)
+  float percentage = (voltage - MIN_BAT) / (MAX_BAT - MIN_BAT) * 100;
+  percentage = constrain(percentage, 0, 100); // constrain to 0-100%
+
+  Serial.print("Battery Percentage: ");
+  Serial.println(percentage);
+
+  //displayBatteryStatus(percentage);
+
+  delay(2000); // wait for 2 seconds before next reading
+}
+
+void displayBatteryStatus(const float& percentage){
+  batteryLight = (percentage <25) ? 1 : (percentage <75)? 2 :3;
+
+  switch(batteryLight){
+    case 0:
+      Serial.println("RGB LED OFF");
+      analogWrite(RGB_PIN_R, 0);
+      analogWrite(RGB_PIN_G, 0);  
+      analogWrite(RGB_PIN_B, 0);
+      break;
+    case 1:
+      Serial.println("RGB LED RED - Battery Low");
+      analogWrite(RGB_PIN_R, 255);
+      analogWrite(RGB_PIN_G, 0);
+      analogWrite(RGB_PIN_B, 0);
+      break;
+    case 2:
+      Serial.println("RGB LED YELLOW - Battery Medium");
+      analogWrite(RGB_PIN_R, 255);
+      analogWrite(RGB_PIN_G, 255);
+      analogWrite(RGB_PIN_B, 0);
+      break;
+    case 3:
+      Serial.println("RGB LED GREEN - Battery High");
+      analogWrite(RGB_PIN_R, 0);
+      analogWrite(RGB_PIN_G, 255);
+      analogWrite(RGB_PIN_B, 0);
+      break;
+  }
+}

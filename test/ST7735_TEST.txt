@@ -1,0 +1,214 @@
+#include <SPI.h>
+#include <SD.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7735.h>
+
+#define TFT_CS  13
+#define TFT_RST 17
+#define TFT_DC  16
+
+#define SPI_SCK  18
+#define SPI_MOSI 23
+#define SPI_MISO 19
+
+#define SD_CS 5
+
+// SPI SCK  (clock)
+// TFT CLK     -> ESP32 GPIO18
+// SD  SD_SCK  -> ESP32 GPIO18
+
+// SPI MOSI (data from ESP32 to devices)
+// TFT SDA     -> ESP32 GPIO23
+// SD  SD_MOSI -> ESP32 GPIO23
+
+// SPI MISO (data from SD to ESP32)
+// SD  SD_MISO -> ESP32 GPIO19
+// (TFT does NOT use MISO)
+
+
+// TFT chip select
+// TFT CS  -> ESP32 GPIO13
+
+// SD card chip select
+// SD CS   -> ESP32 GPIO5
+
+// ====== Display ======
+Adafruit_ST7735 tft(TFT_CS, TFT_DC, TFT_RST);
+
+// ====== Helpers to read little-endian data from BMP ======
+static uint16_t read16(File &f) {
+  uint16_t result;
+  result  = f.read();        // LSB
+  result |= (f.read() << 8); // MSB
+  return result;
+}
+
+static uint32_t read32(File &f) {
+  uint32_t result;
+  result  = f.read();
+  result |= (f.read() << 8);
+  result |= (f.read() << 16);
+  result |= (f.read() << 24);
+  return result;
+}
+
+// ====== Draw 24-bit uncompressed BMP from SD ======
+bool bmpDraw(const char *filename, int16_t x, int16_t y) {
+  // Always keep SD and TFT from fighting on SPI
+  digitalWrite(SD_CS, HIGH);
+  digitalWrite(TFT_CS, HIGH);
+
+  // --- Open file on SD ---
+  digitalWrite(TFT_CS, HIGH);
+  digitalWrite(SD_CS, LOW);
+  File bmpFile = SD.open(filename);
+  digitalWrite(SD_CS, HIGH);
+
+  if (!bmpFile) {
+    Serial.print("BMP not found: ");
+    Serial.println(filename);
+    return false;
+  }
+
+  // --- Parse BMP header ---
+  uint32_t bmpImageoffset, rowSize, bmpWidth, bmpHeight;
+  uint16_t bmpDepth;
+  uint32_t bmpCompression;
+
+  // Switch to SD to read header bytes
+  digitalWrite(TFT_CS, HIGH);
+  digitalWrite(SD_CS, LOW);
+
+  if (read16(bmpFile) != 0x4D42) { // "BM"
+    digitalWrite(SD_CS, HIGH);
+    bmpFile.close();
+    Serial.println("Not a BMP.");
+    return false;
+  }
+
+  (void)read32(bmpFile);            // file size
+  (void)read32(bmpFile);            // creator bytes
+  bmpImageoffset = read32(bmpFile); // start of image data
+
+  (void)read32(bmpFile);            // DIB header size
+  bmpWidth  = read32(bmpFile);
+  bmpHeight = read32(bmpFile);
+
+  if (read16(bmpFile) != 1) {       // planes must be 1
+    digitalWrite(SD_CS, HIGH);
+    bmpFile.close();
+    Serial.println("Bad BMP planes.");
+    return false;
+  }
+
+  bmpDepth = read16(bmpFile);       // bits per pixel
+  bmpCompression = read32(bmpFile); // compression
+
+  if (bmpDepth != 24 || bmpCompression != 0) {
+    digitalWrite(SD_CS, HIGH);
+    bmpFile.close();
+    Serial.println("BMP must be 24-bit, uncompressed.");
+    return false;
+  }
+
+  // BMP rows are padded to 4-byte boundaries
+  rowSize = (bmpWidth * 3 + 3) & ~3;
+
+  // If height is negative, image is stored top-to-bottom
+  bool flip = true;
+  if ((int32_t)bmpHeight < 0) {
+    bmpHeight = - (int32_t)bmpHeight;
+    flip = false;
+  }
+
+  digitalWrite(SD_CS, HIGH);
+
+  // --- Draw ---
+  // Clip if the image goes off screen
+  int16_t w = bmpWidth;
+  int16_t h = bmpHeight;
+  if ((x + w - 1) >= tft.width())  w = tft.width()  - x;
+  if ((y + h - 1) >= tft.height()) h = tft.height() - y;
+
+  // Small read buffer
+  const uint16_t BUFSZ = 3 * 20; // 20 pixels at a time
+  uint8_t sdbuffer[BUFSZ];
+  uint16_t buffidx = sizeof(sdbuffer);
+
+  for (int16_t row = 0; row < h; row++) {
+    uint32_t pos = bmpImageoffset + (flip ? (bmpHeight - 1 - row) : row) * rowSize;
+
+    // Seek to start of this row on SD
+    digitalWrite(TFT_CS, HIGH);
+    digitalWrite(SD_CS, LOW);
+    bmpFile.seek(pos);
+    buffidx = sizeof(sdbuffer);
+
+    for (int16_t col = 0; col < w; col++) {
+      if (buffidx >= sizeof(sdbuffer)) {
+        bmpFile.read(sdbuffer, sizeof(sdbuffer));
+        buffidx = 0;
+      }
+
+      // BMP is stored B, G, R
+      uint8_t b = sdbuffer[buffidx++];
+      uint8_t g = sdbuffer[buffidx++];
+      uint8_t r = sdbuffer[buffidx++];
+
+      digitalWrite(SD_CS, HIGH); // stop SD before talking to TFT
+
+      // Draw pixel to TFT
+      digitalWrite(TFT_CS, LOW);
+      tft.drawPixel(x + col, y + row, tft.color565(r, g, b));
+      digitalWrite(TFT_CS, HIGH);
+
+      // Re-select SD to keep reading
+      digitalWrite(SD_CS, LOW);
+    }
+
+    digitalWrite(SD_CS, HIGH);
+  }
+
+  // Close file
+  digitalWrite(TFT_CS, HIGH);
+  digitalWrite(SD_CS, LOW);
+  bmpFile.close();
+  digitalWrite(SD_CS, HIGH);
+
+  return true;
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  // Make CS pins safe
+  pinMode(TFT_CS, OUTPUT);
+  pinMode(SD_CS, OUTPUT);
+  digitalWrite(TFT_CS, HIGH);
+  digitalWrite(SD_CS, HIGH);
+
+  // SPI pins
+  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+
+  // TFT init
+  tft.initR(INITR_BLACKTAB);
+  tft.setRotation(1);
+  tft.fillScreen(ST77XX_BLACK);
+
+  // SD init
+  Serial.println("Mounting SD...");
+  if (!SD.begin(SD_CS, SPI, 1000000)) {
+    Serial.println("SD mount failed!");
+    while (1) {}
+  }
+  Serial.println("SD mounted.");
+
+  const char *BMP_FILE = "/patrick.bmp"; // put this file on SD root
+  if (bmpDraw(BMP_FILE, 0, 0)) {
+    Serial.println("BMP drawn!");
+  } else {
+    Serial.println("BMP draw failed.");
+  }
+}
+
+void loop() {}

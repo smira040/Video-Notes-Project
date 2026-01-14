@@ -1,0 +1,9 @@
+#1 finish the electrical wiring
+
+#2 Be able to read data from the sd card
+
+#3 display an image from the sd Card
+
+#4 play audio file from SD card
+
+#5 organize all features so it looks pretty

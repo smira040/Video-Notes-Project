@@ -1,0 +1,28 @@
+#include <Arduino.h>    
+#include "../include/pins.h"
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(RGB_PIN_R, OUTPUT);
+    pinMode(RGB_PIN_G, OUTPUT);
+}
+void loop() {
+    analogWrite(RGB_PIN_R, 255); // red
+    analogWrite(RGB_PIN_G, 0);   
+
+    Serial.println("Red LED ON, Green LED OFF");
+    delay(1000); // Wait for a second
+
+    analogWrite(RGB_PIN_R, 0);   // green
+    analogWrite(RGB_PIN_G, 255); 
+
+    Serial.println("Red LED OFF, Green LED ON");
+    delay(1000); // Wait for a second
+
+    analogWrite(RGB_PIN_R, 255); // yellow
+    analogWrite(RGB_PIN_G, 65); 
+
+    Serial.println("Red LED ON, Green LED ON");
+    delay(1000); // Wait for a second
+
+}
