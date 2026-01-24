@@ -18,7 +18,10 @@ struct Video{
     char imagePaths[MAX_IMAGES][MAX_PATH];
     int numImages;
 }; Video videos[MAX_VIDEOS];
- 
+
+char currAudioIndex = 0;
+unsigned char currVideoIndex = 0;
+
 int totalVideos = 0;
 
 
@@ -33,6 +36,6 @@ unsigned int batteryPercentage = 0;
 int cursorX = 0;
 int cursorY = 0;
 
-Adafruit_ST7735 myScreen; //initialized in main
-DFRobot_MAX98357A myAudio; //initialized in main
+//Adafruit_ST7735 myScreen; //initialized in main
+//DFRobot_MAX98357A myAudio; //initialized in main
 #endif

@@ -13,8 +13,8 @@
 enum AudioStates{AUDIO_IDLE};
 int AudioTick(int state){
     switch(state){
-        case AUDIO_IDLE:{  //action
-            playAudio(audioFile);           
+        case AUDIO_IDLE:{  //action //fix the data structure
+            playAudio(videos[currVideoIndex].audioPath[currAudioIndex]);           
             break;
         }
     default: break;

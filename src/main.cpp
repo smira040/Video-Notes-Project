@@ -1,28 +1,32 @@
-//testing AMP
-
 #include <Arduino.h>
-#include "pins.h"
-#include <DFRobot_MAX98357A.h>
-
-String musicList[100]; 
+#include "../include/pins.h"
+#include "../include/TASKS.h"
 
 void setup() {
   Serial.begin(115200);
-  DFRobot_MAX98357A myAudio;
-  
-  while(!myAudio.initI2S(I2S_BCLK, I2S_LRC, I2S_DOUT)/*initiate I2S */){
-    Serial.println("I2S Init Failed! Retrying...");
-    delay(3000);
-    return;
-  }
-  while(!myAudio.initSDCard(SD_CS)/*initiate SD card*/){
-    Serial.println("SD Card Init Failed! Retrying...");
-    delay(3000);
-    return;
-  }
-  myAudio.scanSDMusic(musicList);
+  pinMode(SELECT_PIN, INPUT_PULLUP); //joystick select button
+  pinMode(RGB_PIN_R, OUTPUT); //RGB LED Red
+  pinMode(RGB_PIN_G, OUTPUT); //RGB LED Green
+
+  analogReadResolution(12);          // 0..4095
+  analogSetPinAttenuation(HORIZONTAL_PIN, ADC_11db);
+  analogSetPinAttenuation(VERTICAL_PIN,   ADC_11db);
+  analogSetPinAttenuation(BAT_ADC, ADC_11db); // allows ~0-3.3V range
+
+  //myScreen = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+  //myScreen.setRotation(0); //portrait mode
+  //myScreen.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
+  //myScreen.fillScreen(ST77XX_BLACK);
+
+  //myAudio = DFRobot_MAX98357A();
+
+
+
+  setupTasks();
 }
 
-void loop(){
-
+void loop() {
+  runTasks(); //its given in the name
+  delay(10);
 }
+

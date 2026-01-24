@@ -1,9 +1,13 @@
 #1 finish the electrical wiring
+    //finished soldering
+    //finished mechanical design
 
 #2 Be able to read data from the sd card
-
+    //tested: works
+    
 #3 display an image from the sd Card
-
+    //tested: works
+    //working on a better data structure 
 #4 play audio file from SD card
 
 #5 organize all features so it looks pretty
